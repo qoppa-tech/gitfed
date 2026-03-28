@@ -270,7 +270,7 @@ test "encode/decode roundtrip" {
 }
 
 test "multiple packets in buffer via consumed offset" {
-    const buf = "0009first\n000bsecond\n0000";
+    const buf = "000afirst\n000bsecond\n0000";
     var offset: usize = 0;
 
     const p1 = try decode(buf[offset..]);
@@ -333,7 +333,7 @@ test "decode returns InvalidLength for length 1, 2, 3" {
 
 test "PacketIterator reads 3 packets then flush" {
     // Build wire: "000ahello\n" + "000bworld!\n" + "0006end\n" + "0000"
-    const wire = "000ahello\n" ++ "000bworld!\n" ++ "0009end\n" ++ "0000";
+    const wire = "000ahello\n" ++ "000bworld!\n" ++ "0008end\n" ++ "0000";
     var fbs = std.io.fixedBufferStream(wire);
     var iter = PacketIterator(@TypeOf(fbs.reader())).init(fbs.reader());
 

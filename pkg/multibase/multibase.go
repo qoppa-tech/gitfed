@@ -16,9 +16,9 @@
 // prefix that identifies the key type:
 //
 //	0xed 0x01  → Ed25519 public key  (32 payload bytes)
-//	0xec 0x01  → Ed25519 private key
-//	0x1205     → secp256k1 compressed public key  (33 payload bytes)
-//	0x1200     → P-256 public key
+//	0x80 0x26  → Ed25519 private key
+//	0xe7 0x01  → secp256k1 compressed public key  (33 payload bytes)
+//	0x80 0x24  → P-256 compressed public key  (33 payload bytes)
 package multibase
 
 import (
@@ -221,11 +221,11 @@ func ExtractKeyType(data []byte) (KeyType, error) {
 	switch {
 	case b0 == 0xed && b1 == 0x01:
 		return Ed25519Pub, nil
-	case b0 == 0xec && b1 == 0x01:
+	case b0 == 0x80 && b1 == 0x26:
 		return Ed25519Priv, nil
-	case b0 == 0x12 && b1 == 0x05:
+	case b0 == 0xe7 && b1 == 0x01:
 		return Secp256k1Pub, nil
-	case b0 == 0x12 && b1 == 0x00:
+	case b0 == 0x80 && b1 == 0x24:
 		return P256Pub, nil
 	default:
 		return Unknown, nil

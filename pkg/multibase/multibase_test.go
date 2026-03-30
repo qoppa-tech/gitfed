@@ -189,9 +189,9 @@ func TestExtractKeyTypeKnown(t *testing.T) {
 		want KeyType
 	}{
 		{[]byte{0xed, 0x01, 0, 0}, Ed25519Pub},
-		{[]byte{0xec, 0x01, 0, 0}, Ed25519Priv},
-		{[]byte{0x12, 0x05, 0, 0}, Secp256k1Pub},
-		{[]byte{0x12, 0x00, 0, 0}, P256Pub},
+		{[]byte{0x80, 0x26, 0, 0}, Ed25519Priv},
+		{[]byte{0xe7, 0x01, 0, 0}, Secp256k1Pub},
+		{[]byte{0x80, 0x24, 0, 0}, P256Pub},
 		{[]byte{0xff, 0xff, 0, 0}, Unknown},
 	}
 	for _, tc := range cases {

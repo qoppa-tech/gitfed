@@ -1,4 +1,4 @@
-// Pacage pktline implements Git pkt-line framing (git-protocol v0/v1/v2).
+// Package pktline implements Git pkt-line framing (git-protocol v0/v1/v2).
 //
 // A pkt-line is a 4-hex-digit length prefix (inclusive of those 4 bytes)
 // followed by a payload. Three magic values carry no payload:
@@ -44,8 +44,10 @@ const (
 
 // Packet is a decoded pkt-line frame.
 type Packet struct {
-	Type     PacketType
-	Payload  []byte
+	Type PacketType
+	// Data payload by itself
+	Payload []byte
+	// Total consumed data
 	Consumed int
 }
 

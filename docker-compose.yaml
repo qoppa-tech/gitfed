@@ -1,0 +1,39 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - repos_data:/data/repos
+    env_file: .env
+    depends_on:
+      psql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  psql:
+    image: postgres:17-alpine
+    volumes:
+      - psql_data:/var/lib/postgresql/data
+    env_file: .env
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  repos_data:
+  psql_data:
+  redis_data:

@@ -175,7 +175,7 @@ func (s *Service) Exists(repo Repository) bool {
 }
 
 func (s *Service) RepoPath(repo Repository) string {
-	return filepath.Join(s.reposDir, repo.Name)
+	return SanitizeRepoPath(filepath.Join(s.reposDir, repo.Name))
 }
 
 // --- PackService implementation ---

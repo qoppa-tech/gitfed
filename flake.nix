@@ -22,8 +22,10 @@
           gawk
 		  git
           gnugrep
+		  go
           gnumake
           jq
+          sqlc
           unzip
           zip
           docker-client

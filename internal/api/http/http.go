@@ -50,6 +50,10 @@ type Config struct {
 
 	// Secure controls whether cookies use the Secure flag.
 	Secure bool
+
+	// Rate limiting (nil to disable).
+	IPRateLimit   func(http.Handler) http.Handler
+	UserRateLimit func(http.Handler) http.Handler
 }
 
 // Server is the Git Smart HTTP server.
@@ -79,6 +83,15 @@ func NewServer(config Config) *Server {
 func (s *Server) registerAuthRoutes() {
 	authMw := Auth(s.config.SessionService)
 
+	// Chain: auth -> user rate limit (if configured).
+	authChain := func(next http.Handler) http.Handler {
+		h := next
+		if s.config.UserRateLimit != nil {
+			h = s.config.UserRateLimit(h)
+		}
+		return authMw(h)
+	}
+
 	userPresenter := NewUserPresenter(s.config.UserService)
 	sessionPresenter := NewSessionPresenter(s.config.SessionService, s.config.UserService)
 	sessionPresenter.SetSecure(s.config.Secure)
@@ -89,7 +102,7 @@ func (s *Server) registerAuthRoutes() {
 	userPresenter.RegisterRoutes(s.mux)
 	sessionPresenter.RegisterRoutes(s.mux)
 	ssoPresenter.RegisterRoutes(s.mux)
-	totpPresenter.RegisterRoutes(s.mux, authMw)
+	totpPresenter.RegisterRoutes(s.mux, authChain)
 }
 
 func (s *Server) registerGitRoutes() {
@@ -140,7 +153,11 @@ func (s *Server) serveGit(w http.ResponseWriter, r *http.Request, repo string) {
 
 // ServeHTTP implements http.Handler.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	s.mux.ServeHTTP(w, r)
+	var h http.Handler = s.mux
+	if s.config.IPRateLimit != nil {
+		h = s.config.IPRateLimit(h)
+	}
+	h.ServeHTTP(w, r)
 }
 
 // Serve binds to the configured address and blocks, handling connections.

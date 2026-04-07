@@ -14,6 +14,7 @@ import (
 	"github.com/qoppa-tech/toy-gitfed/internal/modules/session"
 	"github.com/qoppa-tech/toy-gitfed/internal/modules/sso"
 	"github.com/qoppa-tech/toy-gitfed/internal/modules/user"
+	"github.com/qoppa-tech/toy-gitfed/internal/ratelimit"
 	"github.com/qoppa-tech/toy-gitfed/internal/store"
 )
 
@@ -42,6 +43,18 @@ func main() {
 	}
 	defer redisStore.Close()
 
+	// Rate limiting.
+	limiter := ratelimit.NewLimiter(redisStore.Client(), "scripts/rate_limit.lua")
+	ipRateLimit := ratelimit.IPMiddleware(limiter.Allow, cfg.RateLimit.IPRate, cfg.RateLimit.IPBurst)
+	extractUser := func(ctx context.Context) (string, bool) {
+		uid, ok := githttp.UserIDFromContext(ctx)
+		if !ok {
+			return "", false
+		}
+		return uid.String(), true
+	}
+	userRateLimit := ratelimit.UserMiddleware(limiter.Allow, extractUser, cfg.RateLimit.UserRate, cfg.RateLimit.UserBurst)
+
 	// Store adapters.
 	userStore := user.NewStore(queries)
 	sessionPGStore := session.NewPGStore(queries)
@@ -66,6 +79,8 @@ func main() {
 		TOTPService:    totpSvc,
 		OrgService:     orgSvc,
 		Secure:         cfg.SecureCookies,
+		IPRateLimit:    ipRateLimit,
+		UserRateLimit:  userRateLimit,
 	})
 
 	log.Fatal(srv.Serve())

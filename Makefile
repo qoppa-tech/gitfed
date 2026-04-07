@@ -10,10 +10,18 @@ clean:
 sqlc:
 	@sqlc generate
 
-migrate-up:
-	@echo "Run: psql -d gitfed -f migrations/schema/001_users.sql"
-	@echo "Run: psql -d gitfed -f migrations/schema/002_organizations.sql"
-	@echo "Run: psql -d gitfed -f migrations/schema/003_sessions.sql"
-	@echo "Run: psql -d gitfed -f migrations/schema/004_sso.sql"
+lint:
+	@go vet ./...
 
-.PHONY: test build clean sqlc migrate-up
+build-image:
+	@docker build -t gitfed:latest .
+
+compose-up:
+	@docker compose up -d --build
+
+compose-down:
+	@docker compose down
+
+ci: lint test build-image
+
+.PHONY: test build clean lint build-image compose-up compose-down ci migrate-up

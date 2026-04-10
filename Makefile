@@ -7,6 +7,9 @@ build:
 clean:
 	@rm -f ./bin/http-api
 
+sqlc:
+	@sqlc generate
+
 lint:
 	@go vet ./...
 
@@ -21,4 +24,4 @@ compose-down:
 
 ci: lint test build-image
 
-.PHONY: test build clean lint build-image compose-up compose-down ci
+.PHONY: test build clean lint build-image compose-up compose-down ci migrate-up

@@ -20,7 +20,13 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 
+	"github.com/go-git/go-billy/v6/osfs"
+	githttp "github.com/go-git/go-git/v6/backend/http"
+	"github.com/go-git/go-git/v6/plumbing/transport"
 	"github.com/qoppa-tech/toy-gitfed/internal/modules/git"
 	"github.com/qoppa-tech/toy-gitfed/internal/modules/organization"
 	"github.com/qoppa-tech/toy-gitfed/internal/modules/session"
@@ -49,15 +55,21 @@ type Config struct {
 
 // Server is the Git Smart HTTP server.
 type Server struct {
-	config Config
-	mux    *http.ServeMux
+	config     Config
+	gitHandler *githttp.Backend
+	mux        *http.ServeMux
 }
 
 // NewServer creates a new Server with the given configuration.
 func NewServer(config Config) *Server {
+	fs := osfs.New(config.ReposDir)
+	loader := transport.NewFilesystemLoader(fs, false)
+	gitHandler := githttp.NewBackend(loader)
+
 	s := &Server{
-		config: config,
-		mux:    http.NewServeMux(),
+		config:     config,
+		gitHandler: gitHandler,
+		mux:        http.NewServeMux(),
 	}
 
 	s.registerAuthRoutes()
@@ -82,8 +94,49 @@ func (s *Server) registerAuthRoutes() {
 }
 
 func (s *Server) registerGitRoutes() {
-	gitPresenter := NewGitPresenter(s.config.GitService)
-	gitPresenter.RegisterRoutes(s.mux)
+	// Method-specific catch-alls. More specific auth routes take precedence.
+	s.mux.HandleFunc("GET /{path...}", s.handleGitGet)
+	s.mux.HandleFunc("POST /{path...}", s.handleGitPost)
+}
+
+func (s *Server) handleGitGet(w http.ResponseWriter, r *http.Request) {
+	path := r.PathValue("path")
+	repo, ok := strings.CutSuffix(path, "/info/refs")
+	if !ok || repo == "" {
+		http.Error(w, "Not Found", http.StatusNotFound)
+		return
+	}
+	if !strings.HasPrefix(r.URL.Query().Get("service"), "git-") {
+		http.Error(w, "Not Found", http.StatusNotFound)
+		return
+	}
+	s.serveGit(w, r, repo)
+}
+
+func (s *Server) handleGitPost(w http.ResponseWriter, r *http.Request) {
+	path := r.PathValue("path")
+
+	var repo string
+	switch {
+	case strings.HasSuffix(path, "/git-upload-pack"):
+		repo, _ = strings.CutSuffix(path, "/git-upload-pack")
+	case strings.HasSuffix(path, "/git-receive-pack"):
+		repo, _ = strings.CutSuffix(path, "/git-receive-pack")
+	}
+	if repo == "" {
+		http.Error(w, "Not Found", http.StatusNotFound)
+		return
+	}
+	s.serveGit(w, r, repo)
+}
+
+func (s *Server) serveGit(w http.ResponseWriter, r *http.Request, repo string) {
+	repoPath := filepath.Join(s.config.ReposDir, repo)
+	if _, err := os.Stat(repoPath); os.IsNotExist(err) {
+		http.Error(w, "Repository Not Found", http.StatusNotFound)
+		return
+	}
+	s.gitHandler.ServeHTTP(w, r)
 }
 
 // ServeHTTP implements http.Handler.

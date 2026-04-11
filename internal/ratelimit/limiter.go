@@ -30,9 +30,9 @@ func NewLimiter(client *redis.Client, scriptPath string) *Limiter {
 
 // Allow checks whether a request identified by key is permitted under the
 // given rate (tokens/second) and burst (max tokens). It returns whether the
-// request is allowed, the time to wait before retrying (zero if allowed), and
-// any error from Redis.
-func (l *Limiter) Allow(ctx context.Context, key string, rate float64, burst int) (bool, time.Duration, error) {
+// request is allowed, the number of tokens remaining, the time to wait before
+// retrying (zero if allowed), and any error from Redis.
+func (l *Limiter) Allow(ctx context.Context, key string, rate float64, burst int) (bool, int, time.Duration, error) {
 	now := float64(time.Now().UnixNano()) / 1e9
 
 	res, err := l.script.Run(ctx, l.client,
@@ -42,11 +42,12 @@ func (l *Limiter) Allow(ctx context.Context, key string, rate float64, burst int
 		fmt.Sprintf("%.6f", now),
 	).Slice()
 	if err != nil {
-		return false, 0, fmt.Errorf("ratelimit script: %w", err)
+		return false, 0, 0, fmt.Errorf("ratelimit script: %w", err)
 	}
 
 	allowed := res[0].(int64) == 1
+	remaining := int(res[1].(int64))
 	retryAfterStr, _ := res[2].(string)
 	retryAfter, _ := strconv.ParseFloat(retryAfterStr, 64)
-	return allowed, time.Duration(retryAfter * float64(time.Second)), nil
+	return allowed, remaining, time.Duration(retryAfter * float64(time.Second)), nil
 }

@@ -26,19 +26,19 @@ func (p *GitPresenter) handleGitGet(w http.ResponseWriter, r *http.Request) {
 	path := r.PathValue("path")
 	repo, ok := strings.CutSuffix(path, "/info/refs")
 	if !ok || repo == "" {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
+		writeJSON(r.Context(), w,http.StatusNotFound, map[string]string{"error": "not found"})
 		return
 	}
 
 	svc := r.URL.Query().Get("service")
 	if svc != "git-upload-pack" && svc != "git-receive-pack" {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
+		writeJSON(r.Context(), w,http.StatusNotFound, map[string]string{"error": "not found"})
 		return
 	}
 
 	repository := git.GitRepository{Name: repoNameFromPath(repo)}
 	if !p.svc.Exists(repository) {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "repository not found"})
+		writeJSON(r.Context(), w,http.StatusNotFound, map[string]string{"error": "repository not found"})
 		return
 	}
 
@@ -54,7 +54,7 @@ func (p *GitPresenter) handleGitGet(w http.ResponseWriter, r *http.Request) {
 
 	if err := p.svc.UploadPack(ctx, req, w, http.NoBody); err != nil {
 		logger.FromContext(ctx).Error("git upload-pack failed", "step", "upload_pack_advert", "repo", repo, "error", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "upload-pack failed"})
+		writeJSON(r.Context(), w,http.StatusInternalServerError, map[string]string{"error": "upload-pack failed"})
 		return
 	}
 }
@@ -69,18 +69,18 @@ func (p *GitPresenter) handleGitPost(w http.ResponseWriter, r *http.Request) {
 	case strings.HasSuffix(path, "/git-receive-pack"):
 		repo, _ = strings.CutSuffix(path, "/git-receive-pack")
 	default:
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
+		writeJSON(r.Context(), w,http.StatusNotFound, map[string]string{"error": "not found"})
 		return
 	}
 
 	if repo == "" {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
+		writeJSON(r.Context(), w,http.StatusNotFound, map[string]string{"error": "not found"})
 		return
 	}
 
 	repository := git.GitRepository{Name: repoNameFromPath(repo)}
 	if !p.svc.Exists(repository) {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "repository not found"})
+		writeJSON(r.Context(), w,http.StatusNotFound, map[string]string{"error": "repository not found"})
 		return
 	}
 
@@ -89,7 +89,7 @@ func (p *GitPresenter) handleGitPost(w http.ResponseWriter, r *http.Request) {
 	if strings.HasSuffix(path, "/git-upload-pack") {
 		contentType := r.Header.Get("Content-Type")
 		if contentType != "application/x-git-upload-pack-request" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid content-type"})
+			writeJSON(r.Context(), w,http.StatusBadRequest, map[string]string{"error": "invalid content-type"})
 			return
 		}
 
@@ -102,13 +102,13 @@ func (p *GitPresenter) handleGitPost(w http.ResponseWriter, r *http.Request) {
 
 		if err := p.svc.UploadPack(ctx, req, w, r.Body); err != nil {
 			logger.FromContext(ctx).Error("git upload-pack failed", "step", "upload_pack", "repo", repo, "error", err)
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "upload-pack failed"})
+			writeJSON(r.Context(), w,http.StatusInternalServerError, map[string]string{"error": "upload-pack failed"})
 			return
 		}
 	} else {
 		contentType := r.Header.Get("Content-Type")
 		if contentType != "application/x-git-receive-pack-request" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid content-type"})
+			writeJSON(r.Context(), w,http.StatusBadRequest, map[string]string{"error": "invalid content-type"})
 			return
 		}
 
@@ -121,7 +121,7 @@ func (p *GitPresenter) handleGitPost(w http.ResponseWriter, r *http.Request) {
 
 		if err := p.svc.ReceivePack(ctx, req, w, r.Body); err != nil {
 			logger.FromContext(ctx).Error("git receive-pack failed", "step", "receive_pack", "repo", repo, "error", err)
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "receive-pack failed"})
+			writeJSON(r.Context(), w,http.StatusInternalServerError, map[string]string{"error": "receive-pack failed"})
 			return
 		}
 	}

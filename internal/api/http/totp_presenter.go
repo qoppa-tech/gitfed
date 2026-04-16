@@ -24,18 +24,18 @@ func (p *TOTPPresenter) RegisterRoutes(mux *http.ServeMux, authMw func(http.Hand
 func (p *TOTPPresenter) Setup(w http.ResponseWriter, r *http.Request) {
 	userID, ok := UserIDFromContext(r.Context())
 	if !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		writeJSON(r.Context(), w,http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 		return
 	}
 
 	result, err := p.totpSvc.Setup(r.Context(), userID.String(), userID.String())
 	if err != nil {
 		logger.FromContext(r.Context()).Error("totp setup failed", "step", "totp_setup", "user_id", userID.String(), "error", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		writeJSON(r.Context(), w,http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{
+	writeJSON(r.Context(), w,http.StatusOK, map[string]string{
 		"secret": result.Secret,
 		"url":    result.URL,
 	})
@@ -48,27 +48,27 @@ type totpVerifyRequest struct {
 func (p *TOTPPresenter) Verify(w http.ResponseWriter, r *http.Request) {
 	userID, ok := UserIDFromContext(r.Context())
 	if !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		writeJSON(r.Context(), w,http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 		return
 	}
 
 	var req totpVerifyRequest
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<10)).Decode(&req); err != nil || req.Code == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "code is required"})
+		writeJSON(r.Context(), w,http.StatusBadRequest, map[string]string{"error": "code is required"})
 		return
 	}
 
 	valid, err := p.totpSvc.Verify(r.Context(), userID.String(), req.Code)
 	if err != nil {
 		logger.FromContext(r.Context()).Error("totp verify failed", "step", "totp_verify", "user_id", userID.String(), "error", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		writeJSON(r.Context(), w,http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
 
 	if !valid {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid totp code"})
+		writeJSON(r.Context(), w,http.StatusUnauthorized, map[string]string{"error": "invalid totp code"})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"message": "totp verified"})
+	writeJSON(r.Context(), w,http.StatusOK, map[string]string{"message": "totp verified"})
 }

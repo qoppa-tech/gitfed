@@ -37,7 +37,7 @@ func (p *SSOPresenter) GoogleRedirect(w http.ResponseWriter, r *http.Request) {
 	url, err := p.ssoSvc.GoogleAuthURL(r.Context())
 	if err != nil {
 		logger.FromContext(r.Context()).Error("google auth url failed", "step", "auth_url", "provider", string(sso.ProviderGoogle), "error", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		writeJSON(r.Context(), w,http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
@@ -48,7 +48,7 @@ func (p *SSOPresenter) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 	code := r.URL.Query().Get("code")
 
 	if state == "" || code == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "missing state or code"})
+		writeJSON(r.Context(), w,http.StatusBadRequest, map[string]string{"error": "missing state or code"})
 		return
 	}
 
@@ -57,11 +57,11 @@ func (p *SSOPresenter) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 	info, err := p.ssoSvc.GoogleCallback(r.Context(), state, code)
 	if err != nil {
 		if errors.Is(err, sso.ErrInvalidState) {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid oauth state"})
+			writeJSON(r.Context(), w,http.StatusBadRequest, map[string]string{"error": "invalid oauth state"})
 			return
 		}
 		log.Error("sso callback failed", "step", "exchange_code", "error", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "oauth failed"})
+		writeJSON(r.Context(), w,http.StatusInternalServerError, map[string]string{"error": "oauth failed"})
 		return
 	}
 
@@ -78,12 +78,12 @@ func (p *SSOPresenter) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 		})
 		if err != nil {
 			log.Error("sso user register failed", "step", "user_register", "error", err)
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+			writeJSON(r.Context(), w,http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 			return
 		}
 	} else if err != nil {
 		log.Error("sso user lookup failed", "step", "user_lookup", "error", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		writeJSON(r.Context(), w,http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
 
@@ -92,7 +92,7 @@ func (p *SSOPresenter) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 	// Link SSO provider record.
 	if _, err := p.ssoSvc.FindOrCreateSSO(r.Context(), u.ID, sso.ProviderGoogle, info.Name, info.Email); err != nil {
 		log.Error("sso link failed", "step", "sso_link", "error", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		writeJSON(r.Context(), w,http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
 
@@ -100,14 +100,14 @@ func (p *SSOPresenter) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 	pair, err := p.sessionSvc.Create(r.Context(), u.ID)
 	if err != nil {
 		log.Error("sso session create failed", "step", "session_create", "error", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		writeJSON(r.Context(), w,http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
 
 	SetAccessCookie(w, pair.AccessToken, accessCookieMaxAge, p.secure)
 	SetRefreshCookie(w, pair.RefreshToken, refreshCookieMaxAge, p.secure)
 
-	writeJSON(w, http.StatusOK, map[string]string{
+	writeJSON(r.Context(), w,http.StatusOK, map[string]string{
 		"access_token":  pair.AccessToken,
 		"refresh_token": pair.RefreshToken,
 		"user_id":       u.ID.String(),

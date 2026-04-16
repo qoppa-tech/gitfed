@@ -161,7 +161,9 @@ func (p *OrganizationPresenter) AddUser(w http.ResponseWriter, r *http.Request) 
 
 func (p *OrganizationPresenter) ensureCreatorMembership(ctx context.Context, orgID, userID uuid.UUID) error {
 	if err := p.service.AddUser(ctx, orgID, userID); err != nil {
-		_ = p.service.DeleteByID(ctx, orgID)
+		if rollbackErr := p.service.DeleteByID(ctx, orgID); rollbackErr != nil {
+			logger.FromContext(ctx).Error("organization rollback failed after membership error", "step", "org_rollback", "org_id", orgID.String(), "user_id", userID.String(), "add_user_error", err, "delete_error", rollbackErr)
+		}
 		return err
 	}
 	return nil

@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/pquerna/otp/totp"
+
+	"github.com/qoppa-tech/toy-gitfed/pkg/logger"
 )
 
 const totpTTL = 5 * time.Minute
@@ -58,7 +60,9 @@ func (t *TOTPService) Verify(ctx context.Context, userID, code string) (bool, er
 
 	valid := totp.Validate(code, secret)
 	if valid {
-		_ = t.store.DeleteTOTPSecret(ctx, userID)
+		if err := t.store.DeleteTOTPSecret(ctx, userID); err != nil {
+			logger.FromContext(ctx).Warn("totp secret delete failed", "step", "totp_cleanup", "user_id", userID, "error", err)
+		}
 	}
 	return valid, nil
 }

@@ -30,14 +30,15 @@ func Auth(validator TokenValidator) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			token := extractAccessToken(r)
 			if token == "" {
-				writeJSON(r.Context(), w,http.StatusUnauthorized, map[string]string{"error": "missing or invalid token"})
+				logger.FromContext(r.Context()).Info("auth token missing", "step", "token_extract")
+				writeJSON(r.Context(), w, http.StatusUnauthorized, map[string]string{"error": "missing or invalid token"})
 				return
 			}
 
 			userID, err := validator.Validate(r.Context(), token)
 			if err != nil {
 				logger.FromContext(r.Context()).Info("auth token rejected", "step", "token_validate", "error", err)
-				writeJSON(r.Context(), w,http.StatusUnauthorized, map[string]string{"error": "invalid or expired token"})
+				writeJSON(r.Context(), w, http.StatusUnauthorized, map[string]string{"error": "invalid or expired token"})
 				return
 			}
 

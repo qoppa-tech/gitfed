@@ -64,7 +64,7 @@ type refreshResponse struct {
 func (p *SessionPresenter) Login(w http.ResponseWriter, r *http.Request) {
 	var req loginRequest
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<10)).Decode(&req); err != nil {
-		writeJSON(r.Context(), w,http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		writeJSON(r.Context(), w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
 		return
 	}
 
@@ -72,15 +72,15 @@ func (p *SessionPresenter) Login(w http.ResponseWriter, r *http.Request) {
 	req.Password = strings.TrimSpace(req.Password)
 
 	if req.Email == "" || req.Password == "" {
-		writeJSON(r.Context(), w,http.StatusBadRequest, map[string]string{"error": "email and password are required"})
+		writeJSON(r.Context(), w, http.StatusBadRequest, map[string]string{"error": "email and password are required"})
 		return
 	}
 	if len(req.Email) > maxEmailLen {
-		writeJSON(r.Context(), w,http.StatusBadRequest, map[string]string{"error": "email too long"})
+		writeJSON(r.Context(), w, http.StatusBadRequest, map[string]string{"error": "email too long"})
 		return
 	}
 	if len(req.Password) > maxPasswordLen {
-		writeJSON(r.Context(), w,http.StatusBadRequest, map[string]string{"error": "password too long"})
+		writeJSON(r.Context(), w, http.StatusBadRequest, map[string]string{"error": "password too long"})
 		return
 	}
 
@@ -88,12 +88,12 @@ func (p *SessionPresenter) Login(w http.ResponseWriter, r *http.Request) {
 
 	u, err := p.userSvc.GetByEmail(r.Context(), req.Email)
 	if errors.Is(err, user.ErrNotFound) {
-		writeJSON(r.Context(), w,http.StatusUnauthorized, map[string]string{"error": "invalid credentials"})
+		writeJSON(r.Context(), w, http.StatusUnauthorized, map[string]string{"error": "invalid credentials"})
 		return
 	}
 	if err != nil {
 		log.Error("login user lookup failed", "step", "user_lookup", "error", err)
-		writeJSON(r.Context(), w,http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		writeJSON(r.Context(), w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
 
@@ -101,25 +101,25 @@ func (p *SessionPresenter) Login(w http.ResponseWriter, r *http.Request) {
 
 	if err := p.userSvc.VerifyPassword(u.Password, req.Password); err != nil {
 		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
-			writeJSON(r.Context(), w,http.StatusUnauthorized, map[string]string{"error": "invalid credentials"})
+			writeJSON(r.Context(), w, http.StatusUnauthorized, map[string]string{"error": "invalid credentials"})
 			return
 		}
 		log.Error("login password verify failed", "step", "password_verify", "error", err)
-		writeJSON(r.Context(), w,http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		writeJSON(r.Context(), w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
 
 	pair, err := p.sessionSvc.Create(r.Context(), u.ID)
 	if err != nil {
 		log.Error("login session create failed", "step", "session_create", "error", err)
-		writeJSON(r.Context(), w,http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		writeJSON(r.Context(), w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
 
 	SetAccessCookie(w, pair.AccessToken, accessCookieMaxAge, p.secure)
 	SetRefreshCookie(w, pair.RefreshToken, refreshCookieMaxAge, p.secure)
 
-	writeJSON(r.Context(), w,http.StatusOK, loginResponse{
+	writeJSON(r.Context(), w, http.StatusOK, loginResponse{
 		AccessToken:  pair.AccessToken,
 		RefreshToken: pair.RefreshToken,
 		User: loginUserDTO{
@@ -134,24 +134,24 @@ func (p *SessionPresenter) Login(w http.ResponseWriter, r *http.Request) {
 func (p *SessionPresenter) Refresh(w http.ResponseWriter, r *http.Request) {
 	refreshToken := extractRefreshToken(r)
 	if refreshToken == "" {
-		writeJSON(r.Context(), w,http.StatusUnauthorized, map[string]string{"error": "missing refresh token"})
+		writeJSON(r.Context(), w, http.StatusUnauthorized, map[string]string{"error": "missing refresh token"})
 		return
 	}
 
 	accessToken, err := p.sessionSvc.Refresh(r.Context(), refreshToken)
 	if err != nil {
 		if errors.Is(err, session.ErrInvalidRefreshToken) {
-			writeJSON(r.Context(), w,http.StatusUnauthorized, map[string]string{"error": "invalid or expired refresh token"})
+			writeJSON(r.Context(), w, http.StatusUnauthorized, map[string]string{"error": "invalid or expired refresh token"})
 			return
 		}
 		logger.FromContext(r.Context()).Error("session refresh failed", "step", "session_refresh", "error", err)
-		writeJSON(r.Context(), w,http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		writeJSON(r.Context(), w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
 
 	SetAccessCookie(w, accessToken, accessCookieMaxAge, p.secure)
 
-	writeJSON(r.Context(), w,http.StatusOK, refreshResponse{
+	writeJSON(r.Context(), w, http.StatusOK, refreshResponse{
 		AccessToken: accessToken,
 	})
 }
@@ -159,24 +159,24 @@ func (p *SessionPresenter) Refresh(w http.ResponseWriter, r *http.Request) {
 func (p *SessionPresenter) Logout(w http.ResponseWriter, r *http.Request) {
 	refreshToken := extractRefreshToken(r)
 	if refreshToken == "" {
-		writeJSON(r.Context(), w,http.StatusUnauthorized, map[string]string{"error": "missing refresh token"})
+		writeJSON(r.Context(), w, http.StatusUnauthorized, map[string]string{"error": "missing refresh token"})
 		return
 	}
 
 	if err := p.sessionSvc.Revoke(r.Context(), refreshToken); err != nil {
 		if errors.Is(err, session.ErrSessionNotFound) {
-			writeJSON(r.Context(), w,http.StatusNotFound, map[string]string{"error": "session not found"})
+			writeJSON(r.Context(), w, http.StatusNotFound, map[string]string{"error": "session not found"})
 			return
 		}
 		logger.FromContext(r.Context()).Error("session revoke failed", "step", "session_revoke", "error", err)
-		writeJSON(r.Context(), w,http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		writeJSON(r.Context(), w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
 
 	ClearAccessCookie(w, p.secure)
 	ClearRefreshCookie(w, p.secure)
 
-	writeJSON(r.Context(), w,http.StatusOK, map[string]string{"message": "logged out"})
+	writeJSON(r.Context(), w, http.StatusOK, map[string]string{"message": "logged out"})
 }
 
 func extractRefreshToken(r *http.Request) string {

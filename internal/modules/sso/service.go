@@ -12,6 +12,8 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+
+	"github.com/qoppa-tech/toy-gitfed/pkg/logger"
 )
 
 type Service struct {
@@ -52,7 +54,9 @@ func (s *Service) GoogleCallback(ctx context.Context, state, code string) (*Goog
 	if !valid {
 		return nil, ErrInvalidState
 	}
-	_ = s.states.DeleteOAuthState(ctx, state)
+	if err := s.states.DeleteOAuthState(ctx, state); err != nil {
+		logger.FromContext(ctx).Warn("oauth state delete failed", "step", "oauth_state_cleanup", "error", err)
+	}
 
 	token, err := s.googleOAuth.Exchange(ctx, code)
 	if err != nil {

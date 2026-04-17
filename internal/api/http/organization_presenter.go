@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/qoppa-tech/toy-gitfed/internal/modules/organization"
+	"github.com/qoppa-tech/toy-gitfed/pkg/logger"
 )
 
 type OrganizationPresenter struct {
@@ -43,50 +44,55 @@ type organizationResponse struct {
 func (p *OrganizationPresenter) Create(w http.ResponseWriter, r *http.Request) {
 	authUserID, ok := UserIDFromContext(r.Context())
 	if !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		writeJSON(r.Context(), w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 		return
 	}
 
 	var req createOrganizationRequest
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<10)).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		writeJSON(r.Context(), w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
 		return
 	}
 
 	req.Name = strings.TrimSpace(req.Name)
 	req.Description = strings.TrimSpace(req.Description)
 	if req.Name == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "name is required"})
+		writeJSON(r.Context(), w, http.StatusBadRequest, map[string]string{"error": "name is required"})
 		return
 	}
+
+	log := logger.FromContext(r.Context()).With("auth_user_id", authUserID.String())
 
 	org, err := p.service.Create(r.Context(), organization.CreateInput{
 		Name:        req.Name,
 		Description: req.Description,
 	})
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		log.Error("organization create failed", "step", "org_create", "org_name", req.Name, "error", err)
+		writeJSON(r.Context(), w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
 
 	if err := p.ensureCreatorMembership(r.Context(), org.ID, authUserID); err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		log.Error("organization creator membership failed", "step", "org_creator_membership", "org_id", org.ID.String(), "error", err)
+		writeJSON(r.Context(), w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, toOrganizationResponse(org))
+	writeJSON(r.Context(), w, http.StatusCreated, toOrganizationResponse(org))
 }
 
 func (p *OrganizationPresenter) List(w http.ResponseWriter, r *http.Request) {
 	authUserID, ok := UserIDFromContext(r.Context())
 	if !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		writeJSON(r.Context(), w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 		return
 	}
 
 	orgs, err := p.service.GetByUserID(r.Context(), authUserID)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		logger.FromContext(r.Context()).Error("organization list failed", "step", "org_list", "auth_user_id", authUserID.String(), "error", err)
+		writeJSON(r.Context(), w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
 
@@ -95,60 +101,69 @@ func (p *OrganizationPresenter) List(w http.ResponseWriter, r *http.Request) {
 		resp[i] = toOrganizationResponse(orgs[i])
 	}
 
-	writeJSON(w, http.StatusOK, resp)
+	writeJSON(r.Context(), w, http.StatusOK, resp)
 }
 
 func (p *OrganizationPresenter) AddUser(w http.ResponseWriter, r *http.Request) {
 	authUserID, ok := UserIDFromContext(r.Context())
 	if !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		writeJSON(r.Context(), w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 		return
 	}
 
 	orgID, err := uuid.Parse(r.PathValue("orgID"))
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid org id"})
+		writeJSON(r.Context(), w, http.StatusBadRequest, map[string]string{"error": "invalid org id"})
 		return
 	}
 
 	var req addOrganizationUserRequest
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<10)).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		writeJSON(r.Context(), w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
 		return
 	}
 
 	userID, err := uuid.Parse(strings.TrimSpace(req.UserID))
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid user id"})
+		writeJSON(r.Context(), w, http.StatusBadRequest, map[string]string{"error": "invalid user id"})
 		return
 	}
 
+	log := logger.FromContext(r.Context()).
+		With("auth_user_id", authUserID.String()).
+		With("org_id", orgID.String()).
+		With("target_user_id", userID.String())
+
 	authUserOrgs, err := p.service.GetByUserID(r.Context(), authUserID)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		log.Error("organization membership lookup failed", "step", "org_auth_lookup", "error", err)
+		writeJSON(r.Context(), w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
 	// Authorize before disclosing existence details to avoid org enumeration.
 	if !userBelongsToOrg(authUserOrgs, orgID) {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "forbidden"})
+		writeJSON(r.Context(), w, http.StatusForbidden, map[string]string{"error": "forbidden"})
 		return
 	}
 
 	if err := p.service.AddUser(r.Context(), orgID, userID); err != nil {
 		if errors.Is(err, organization.ErrNotFound) {
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "organization not found"})
+			writeJSON(r.Context(), w, http.StatusNotFound, map[string]string{"error": "organization not found"})
 			return
 		}
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		log.Error("organization add user failed", "step", "org_add_user", "error", err)
+		writeJSON(r.Context(), w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"message": "user added"})
+	writeJSON(r.Context(), w, http.StatusOK, map[string]string{"message": "user added"})
 }
 
 func (p *OrganizationPresenter) ensureCreatorMembership(ctx context.Context, orgID, userID uuid.UUID) error {
 	if err := p.service.AddUser(ctx, orgID, userID); err != nil {
-		_ = p.service.DeleteByID(ctx, orgID)
+		if rollbackErr := p.service.DeleteByID(ctx, orgID); rollbackErr != nil {
+			logger.FromContext(ctx).Error("organization rollback failed after membership error", "step", "org_rollback", "org_id", orgID.String(), "user_id", userID.String(), "add_user_error", err, "delete_error", rollbackErr)
+		}
 		return err
 	}
 	return nil

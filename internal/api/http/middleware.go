@@ -30,13 +30,15 @@ func Auth(validator TokenValidator) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			token := extractAccessToken(r)
 			if token == "" {
-				writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "missing or invalid token"})
+				logger.FromContext(r.Context()).Info("auth token missing", "step", "token_extract")
+				writeJSON(r.Context(), w, http.StatusUnauthorized, map[string]string{"error": "missing or invalid token"})
 				return
 			}
 
 			userID, err := validator.Validate(r.Context(), token)
 			if err != nil {
-				writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid or expired token"})
+				logger.FromContext(r.Context()).Info("auth token rejected", "step", "token_validate", "error", err)
+				writeJSON(r.Context(), w, http.StatusUnauthorized, map[string]string{"error": "invalid or expired token"})
 				return
 			}
 
@@ -117,8 +119,10 @@ func ClearRefreshCookie(w http.ResponseWriter, secure bool) {
 	})
 }
 
-func writeJSON(w http.ResponseWriter, status int, v any) {
+func writeJSON(ctx context.Context, w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(v)
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		logger.FromContext(ctx).Error("response json encode failed", "status", status, "error", err)
+	}
 }

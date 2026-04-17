@@ -8,6 +8,8 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+
+	"github.com/qoppa-tech/toy-gitfed/pkg/logger"
 )
 
 type Service struct {
@@ -86,7 +88,9 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (string, err
 		uidStr = userID.String()
 
 		// Re-populate cache.
-		_ = s.tokens.SetRefreshToken(ctx, refreshToken, uidStr, RefreshTokenTTL)
+		if err := s.tokens.SetRefreshToken(ctx, refreshToken, uidStr, RefreshTokenTTL); err != nil {
+			logger.FromContext(ctx).Warn("refresh token cache repopulate failed", "step", "refresh_cache_set", "user_id", uidStr, "error", err)
+		}
 	}
 
 	accessToken, err := generateToken(32)
@@ -105,7 +109,9 @@ func (s *Service) Revoke(ctx context.Context, refreshToken string) error {
 	if err := s.repo.DeleteByRefreshToken(ctx, refreshToken); err != nil {
 		return err
 	}
-	_ = s.tokens.DeleteRefreshToken(ctx, refreshToken)
+	if err := s.tokens.DeleteRefreshToken(ctx, refreshToken); err != nil {
+		logger.FromContext(ctx).Warn("refresh token cache delete failed", "step", "refresh_cache_delete", "error", err)
+	}
 	return nil
 }
 

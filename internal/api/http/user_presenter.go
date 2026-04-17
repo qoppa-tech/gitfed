@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/qoppa-tech/toy-gitfed/internal/modules/user"
+	"github.com/qoppa-tech/toy-gitfed/pkg/logger"
 )
 
 const (
@@ -49,7 +50,7 @@ type userResponse struct {
 func (p *UserPresenter) Register(w http.ResponseWriter, r *http.Request) {
 	var req registerRequest
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<10)).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		writeJSON(r.Context(), w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
 		return
 	}
 
@@ -58,12 +59,12 @@ func (p *UserPresenter) Register(w http.ResponseWriter, r *http.Request) {
 	req.Email = strings.TrimSpace(req.Email)
 
 	if req.Name == "" || req.Username == "" || req.Password == "" || req.Email == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "all fields are required"})
+		writeJSON(r.Context(), w, http.StatusBadRequest, map[string]string{"error": "all fields are required"})
 		return
 	}
 
 	if err := validateRegisterInput(req); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		writeJSON(r.Context(), w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
 
@@ -76,16 +77,17 @@ func (p *UserPresenter) Register(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, user.ErrEmailTaken):
-			writeJSON(w, http.StatusConflict, map[string]string{"error": "email already taken"})
+			writeJSON(r.Context(), w, http.StatusConflict, map[string]string{"error": "email already taken"})
 		case errors.Is(err, user.ErrUsernameTaken):
-			writeJSON(w, http.StatusConflict, map[string]string{"error": "username already taken"})
+			writeJSON(r.Context(), w, http.StatusConflict, map[string]string{"error": "username already taken"})
 		default:
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+			logger.FromContext(r.Context()).Error("user register failed", "step", "user_register", "email", req.Email, "error", err)
+			writeJSON(r.Context(), w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		}
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, userResponse{
+	writeJSON(r.Context(), w, http.StatusCreated, userResponse{
 		UserID:   u.ID.String(),
 		Name:     u.Name,
 		Username: u.Username,

@@ -9,6 +9,7 @@ import (
 	"github.com/qoppa-tech/toy-gitfed/internal/config"
 	"github.com/qoppa-tech/toy-gitfed/internal/database"
 	"github.com/qoppa-tech/toy-gitfed/internal/database/sqlc"
+	"github.com/qoppa-tech/toy-gitfed/internal/modules/federation"
 	gitmod "github.com/qoppa-tech/toy-gitfed/internal/modules/git"
 	"github.com/qoppa-tech/toy-gitfed/internal/modules/organization"
 	"github.com/qoppa-tech/toy-gitfed/internal/modules/session"
@@ -79,20 +80,31 @@ func main() {
 	orgSvc := organization.NewService(orgStore)
 	gitSvc := gitmod.NewService(reposDir)
 
+	var federationSvc *federation.Service
+	if cfg.Federation.Enabled {
+		federationSvc = federation.NewService(nil)
+	}
+
 	srv := githttp.NewServer(githttp.Config{
-		ReposDir:       reposDir,
-		Address:        cfg.HTTPAddr,
-		RepoStore:      repoStore,
-		GitService:     gitSvc,
-		UserService:    userSvc,
-		SessionService: sessionSvc,
-		SSOService:     ssoSvc,
-		TOTPService:    totpSvc,
-		OrgService:     orgSvc,
-		Secure:         cfg.SecureCookies,
-		IPRateLimit:    ipRateLimit,
-		UserRateLimit:  userRateLimit,
-		Logger:         log,
+		ReposDir:          reposDir,
+		Address:           cfg.HTTPAddr,
+		RepoStore:         repoStore,
+		GitService:        gitSvc,
+		UserService:       userSvc,
+		SessionService:    sessionSvc,
+		SSOService:        ssoSvc,
+		TOTPService:       totpSvc,
+		OrgService:        orgSvc,
+		FederationService: federationSvc,
+		FederationInstance: githttp.FederationInstanceConfig{
+			InstanceURL:  cfg.Federation.InstanceURL,
+			InstanceName: cfg.Federation.InstanceName,
+			AdminEmail:   cfg.Federation.AdminEmail,
+		},
+		Secure:        cfg.SecureCookies,
+		IPRateLimit:   ipRateLimit,
+		UserRateLimit: userRateLimit,
+		Logger:        log,
 	})
 
 	log.Fatal("server failed", "error", srv.Serve())

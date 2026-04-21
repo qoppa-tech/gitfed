@@ -26,6 +26,7 @@ import (
 	"github.com/go-git/go-billy/v6/osfs"
 	githttp "github.com/go-git/go-git/v6/backend/http"
 	"github.com/go-git/go-git/v6/plumbing/transport"
+	"github.com/qoppa-tech/toy-gitfed/internal/modules/federation"
 	"github.com/qoppa-tech/toy-gitfed/internal/modules/git"
 	"github.com/qoppa-tech/toy-gitfed/internal/modules/organization"
 	"github.com/qoppa-tech/toy-gitfed/internal/modules/session"
@@ -49,6 +50,10 @@ type Config struct {
 	SSOService     *sso.Service
 	TOTPService    *session.TOTPService
 	OrgService     *organization.Service
+
+	// Federation.
+	FederationService  *federation.Service
+	FederationInstance FederationInstanceConfig
 
 	// Secure controls whether cookies use the Secure flag.
 	Secure bool
@@ -82,6 +87,7 @@ func NewServer(config Config) *Server {
 	}
 
 	s.registerAuthRoutes()
+	s.registerFederationRoutes()
 	s.registerGitRoutes()
 
 	// Build handler chain once: logger → IP rate limit → mux.
@@ -124,6 +130,15 @@ func (s *Server) registerAuthRoutes() {
 	totpPresenter.RegisterRoutes(s.mux, authChain)
 	organizationPresenter.RegisterRoutes(s.mux, authMw)
 	repositoryPresenter.RegisterRoutes(s.mux, authMw)
+}
+
+func (s *Server) registerFederationRoutes() {
+	service := s.config.FederationService
+	if service == nil {
+		service = federation.NewService(nil)
+	}
+	federationPresenter := NewFederationPresenter(service, s.config.FederationInstance)
+	federationPresenter.RegisterRoutes(s.mux, FederationAuth(service))
 }
 
 func (s *Server) registerGitRoutes() {

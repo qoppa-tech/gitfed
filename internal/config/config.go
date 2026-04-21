@@ -15,12 +15,20 @@ type RateLimitConfig struct {
 	UserBurst int
 }
 
+type FederationConfig struct {
+	Enabled      bool
+	InstanceURL  string
+	InstanceName string
+	AdminEmail   string
+}
+
 type Config struct {
-	Database  database.Config
-	Redis     store.RedisConfig
-	Google    sso.GoogleConfig
-	RateLimit RateLimitConfig
-	Log       logger.Config
+	Database   database.Config
+	Redis      store.RedisConfig
+	Google     sso.GoogleConfig
+	RateLimit  RateLimitConfig
+	Log        logger.Config
+	Federation FederationConfig
 
 	HTTPAddr      string
 	TOTPIssuer    string
@@ -57,6 +65,12 @@ func Load() Config {
 		Log: logger.Config{
 			Env:   env.Or("ENV", "DEV"),
 			Level: env.Or("LOG_LEVEL", "info"),
+		},
+		Federation: FederationConfig{
+			Enabled:      env.Bool("FEDERATION_ENABLED", true),
+			InstanceURL:  env.Or("FEDERATION_INSTANCE_URL", "http://localhost:8080"),
+			InstanceName: env.Or("FEDERATION_INSTANCE_NAME", "toy-gitfed"),
+			AdminEmail:   env.Or("FEDERATION_ADMIN_EMAIL", ""),
 		},
 		HTTPAddr:      env.Or("HTTP_ADDR", "0.0.0.0:8080"),
 		TOTPIssuer:    env.Or("TOTP_ISSUER", "gitfed"),

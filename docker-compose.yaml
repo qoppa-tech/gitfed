@@ -1,4 +1,22 @@
 services:
+  migrate:
+    image: migrate/migrate:v4.19.0
+    env_file: .env
+    volumes:
+      - ./migrations/versions:/migrations:ro
+    command:
+      [
+        "-path",
+        "/migrations",
+        "-database",
+        "postgres://${DB_USER}:${DB_PASSWORD}@psql:${DB_PORT}/${DB_NAME}?sslmode=${DB_SSLMODE}",
+        "up",
+      ]
+    depends_on:
+      psql:
+        condition: service_healthy
+    restart: "no"
+
   api:
     build: .
     ports:
@@ -6,7 +24,10 @@ services:
     volumes:
       - repos_data:/data/repos
     env_file: .env
+    stop_grace_period: 20s
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       psql:
         condition: service_healthy
       redis:

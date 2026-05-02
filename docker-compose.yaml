@@ -17,6 +17,17 @@ services:
         condition: service_healthy
     restart: "no"
 
+  seed:
+    build: .
+    env_file: .env
+    command: ["/srv/admin", "seed"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      psql:
+        condition: service_healthy
+    restart: "no"
+
   api:
     build: .
     ports:
@@ -31,6 +42,8 @@ services:
       timeout: 3s
       retries: 5
     depends_on:
+      seed:
+        condition: service_completed_successfully
       migrate:
         condition: service_completed_successfully
       psql:

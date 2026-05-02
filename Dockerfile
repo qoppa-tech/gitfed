@@ -7,6 +7,7 @@ RUN go mod download
 
 COPY . .
 RUN CGO_ENABLED=0 go build -o /app ./cmd/http-api/main.go
+RUN CGO_ENABLED=0 go build -o /admin ./cmd/admin/main.go
 
 FROM busybox:1.36.1-musl AS busybox
 
@@ -17,6 +18,7 @@ WORKDIR /srv
 ARG APP_VERSION=dev
 
 COPY --from=builder /app /srv/app
+COPY --from=builder /admin /srv/admin
 COPY --from=builder /build/scripts /srv/scripts
 COPY --from=busybox /bin/busybox /bin/busybox
 

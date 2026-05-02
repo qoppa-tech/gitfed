@@ -8,12 +8,10 @@ Federated git forge toy project by qoppatech.
    `cp .env.example .env`
 2. Boot full stack (postgres, redis, migrations, api):
    `make compose-up`
-3. Seed minimal data:
-   `make seed`
-4. Verify health:
+3. Verify health:
    `curl -fsS http://localhost:8080/healthz`
 
-Single-command bootstrap path is `make compose-up` (includes migration job before API starts).
+Single-command bootstrap path is `make compose-up` (includes migration + seed jobs before API starts).
 
 ## Admin Commands
 
@@ -64,4 +62,3 @@ Use this same order in self-hosted, cloud, and qoppainfra:
 3. Run migrations (`make migrate-up` or migration job).
 4. Start API image tagged with immutable version (`gitfed:<sha>`).
 5. Wait for `/healthz` readiness before routing traffic.
-

@@ -30,6 +30,7 @@ type Config struct {
 
 	HTTPAddr           string
 	ReposDir           string
+	AppVersion         string
 	TOTPIssuer         string
 	SecureCookies      bool
 	ShutdownTimeout    time.Duration
@@ -69,6 +70,7 @@ func Load() Config {
 		},
 		HTTPAddr:           env.Or("HTTP_ADDR", "0.0.0.0:8080"),
 		ReposDir:           env.Or("REPOS_DIR", ""),
+		AppVersion:         env.Or("APP_VERSION", "dev"),
 		TOTPIssuer:         env.Or("TOTP_ISSUER", "gitfed"),
 		SecureCookies:      env.Bool("SECURE_COOKIES", false),
 		ShutdownTimeout:    parseDuration("SHUTDOWN_TIMEOUT", 15*time.Second),

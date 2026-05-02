@@ -14,11 +14,14 @@ FROM gcr.io/distroless/static-debian12
 
 WORKDIR /srv
 
+ARG APP_VERSION=dev
+
 COPY --from=builder /app /srv/app
 COPY --from=builder /build/scripts /srv/scripts
 COPY --from=busybox /bin/busybox /bin/busybox
 
 ENV REPOS_DIR=/data/repos
+ENV APP_VERSION=${APP_VERSION}
 
 EXPOSE 8080
 

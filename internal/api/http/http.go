@@ -61,7 +61,8 @@ type Config struct {
 	UserRateLimit func(http.Handler) http.Handler
 
 	// Logger (nil to disable).
-	Logger logger.Logger
+	Logger     logger.Logger
+	AppVersion string
 
 	// Health dependencies (nil skips check).
 	DBHealth           func(context.Context) error
@@ -174,6 +175,7 @@ func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"status":     "degraded",
 			"components": components,
+			"version":    s.config.AppVersion,
 		})
 		return
 	}
@@ -181,6 +183,7 @@ func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"status":     "ok",
 		"components": components,
+		"version":    s.config.AppVersion,
 	})
 }
 

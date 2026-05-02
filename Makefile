@@ -1,3 +1,5 @@
+VERSION ?= $(shell git rev-parse --short HEAD)
+
 test:
 	@go test ./... -v -cover
 
@@ -11,7 +13,7 @@ lint:
 	@go vet ./...
 
 build-image:
-	@docker build -t gitfed:latest .
+	@docker build --build-arg APP_VERSION=$(VERSION) -t gitfed:$(VERSION) -t gitfed:latest .
 
 compose-up:
 	@docker compose up -d --build

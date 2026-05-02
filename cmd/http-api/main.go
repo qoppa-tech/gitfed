@@ -84,6 +84,7 @@ func main() {
 	srv := githttp.NewServer(githttp.Config{
 		ReposDir:       cfg.ReposDir,
 		Address:        cfg.HTTPAddr,
+		AppVersion:     cfg.AppVersion,
 		RepoStore:      repoStore,
 		GitService:     gitSvc,
 		UserService:    userSvc,
@@ -111,7 +112,7 @@ func main() {
 
 	errCh := make(chan error, 1)
 	go func() {
-		log.Info("server listening", "address", cfg.HTTPAddr)
+		log.Info("server listening", "address", cfg.HTTPAddr, "version", cfg.AppVersion)
 		errCh <- httpServer.ListenAndServe()
 	}()
 

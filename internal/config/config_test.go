@@ -54,10 +54,37 @@ func TestValidatePassesWithRequiredProdVars(t *testing.T) {
 	t.Setenv("HTTP_ADDR", "0.0.0.0:8080")
 	t.Setenv("REPOS_DIR", "/tmp/repos")
 	t.Setenv("SHUTDOWN_TIMEOUT", "15s")
+	t.Setenv("HEALTHCHECK_TIMEOUT", "2s")
 
 	cfg := Load()
 	if err := cfg.Validate(); err != nil {
 		t.Fatalf("expected no validation error, got: %v", err)
+	}
+}
+
+func TestValidateRejectsInvalidHealthcheckTimeout(t *testing.T) {
+	t.Setenv("ENV", "prod")
+	t.Setenv("DB_HOST", "localhost")
+	t.Setenv("DB_PORT", "5432")
+	t.Setenv("DB_USER", "postgres")
+	t.Setenv("DB_PASSWORD", "postgres")
+	t.Setenv("DB_NAME", "gitfed")
+	t.Setenv("DB_SSLMODE", "disable")
+	t.Setenv("REDIS_HOST", "localhost")
+	t.Setenv("REDIS_PORT", "6379")
+	t.Setenv("HTTP_ADDR", "0.0.0.0:8080")
+	t.Setenv("REPOS_DIR", "/tmp/repos")
+	t.Setenv("HEALTHCHECK_TIMEOUT", "-1s")
+
+	cfg := Load()
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+
+	verr := err.(*ValidationError)
+	if _, ok := verr.InvalidVars["HEALTHCHECK_TIMEOUT"]; !ok {
+		t.Fatal("expected HEALTHCHECK_TIMEOUT invalid var")
 	}
 }
 

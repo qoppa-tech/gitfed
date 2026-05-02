@@ -95,6 +95,13 @@ func main() {
 		IPRateLimit:    ipRateLimit,
 		UserRateLimit:  userRateLimit,
 		Logger:         log,
+		DBHealth: func(ctx context.Context) error {
+			return dbPool.Ping(ctx)
+		},
+		RedisHealth: func(ctx context.Context) error {
+			return redisStore.Client().Ping(ctx).Err()
+		},
+		HealthcheckTimeout: cfg.HealthcheckTimeout,
 	})
 
 	httpServer := &http.Server{

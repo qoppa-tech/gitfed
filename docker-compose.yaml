@@ -25,6 +25,11 @@ services:
       - repos_data:/data/repos
     env_file: .env
     stop_grace_period: 20s
+    healthcheck:
+      test: ["CMD", "/bin/busybox", "wget", "-q", "-O-", "http://127.0.0.1:8080/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
     depends_on:
       migrate:
         condition: service_completed_successfully

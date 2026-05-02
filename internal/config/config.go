@@ -28,11 +28,12 @@ type Config struct {
 	RateLimit RateLimitConfig
 	Log       logger.Config
 
-	HTTPAddr        string
-	ReposDir        string
-	TOTPIssuer      string
-	SecureCookies   bool
-	ShutdownTimeout time.Duration
+	HTTPAddr           string
+	ReposDir           string
+	TOTPIssuer         string
+	SecureCookies      bool
+	ShutdownTimeout    time.Duration
+	HealthcheckTimeout time.Duration
 }
 
 func Load() Config {
@@ -66,11 +67,12 @@ func Load() Config {
 			Env:   env.Or("ENV", "DEV"),
 			Level: env.Or("LOG_LEVEL", "info"),
 		},
-		HTTPAddr:        env.Or("HTTP_ADDR", "0.0.0.0:8080"),
-		ReposDir:        env.Or("REPOS_DIR", ""),
-		TOTPIssuer:      env.Or("TOTP_ISSUER", "gitfed"),
-		SecureCookies:   env.Bool("SECURE_COOKIES", false),
-		ShutdownTimeout: parseDuration("SHUTDOWN_TIMEOUT", 15*time.Second),
+		HTTPAddr:           env.Or("HTTP_ADDR", "0.0.0.0:8080"),
+		ReposDir:           env.Or("REPOS_DIR", ""),
+		TOTPIssuer:         env.Or("TOTP_ISSUER", "gitfed"),
+		SecureCookies:      env.Bool("SECURE_COOKIES", false),
+		ShutdownTimeout:    parseDuration("SHUTDOWN_TIMEOUT", 15*time.Second),
+		HealthcheckTimeout: parseDuration("HEALTHCHECK_TIMEOUT", 2*time.Second),
 	}
 }
 
@@ -123,6 +125,9 @@ func (c Config) Validate() error {
 	}
 	if c.ShutdownTimeout <= 0 {
 		invalid["SHUTDOWN_TIMEOUT"] = "must be > 0"
+	}
+	if c.HealthcheckTimeout <= 0 {
+		invalid["HEALTHCHECK_TIMEOUT"] = "must be > 0"
 	}
 
 	if len(missing) == 0 && len(invalid) == 0 {

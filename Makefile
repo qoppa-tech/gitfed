@@ -33,6 +33,9 @@ migrate-down:
 migrate-status:
 	@docker compose run --rm migrate version
 
+seed:
+	@go run ./cmd/admin seed
+
 test-integration:
 	@docker compose -f docker-compose.test.yml up -d --wait
 	@go test ./... -v -cover; ret=$$?; docker compose -f docker-compose.test.yml down; exit $$ret
@@ -48,4 +51,4 @@ test-e2e-auth:
 test-e2e-git:
 	@go test ./e2e -v -run 'TestE2E/TestGit'
 
-.PHONY: test build clean lint build-image compose-up compose-down sqlctest-integration ci test-e2e test-e2e-auth test-e2e-git migrate-up migrate-down migrate-status
+.PHONY: test build clean lint build-image compose-up compose-down sqlctest-integration ci test-e2e test-e2e-auth test-e2e-git migrate-up migrate-down migrate-status seed

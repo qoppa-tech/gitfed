@@ -29,7 +29,11 @@ func main() {
 		fmt.Fprintf(os.Stderr, "usage: set REPOS_DIR or pass <repos-dir> as argument\n")
 		os.Exit(1)
 	}
-	cfg := config.Load()
+	cfg, err := config.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to load config: %v\n", err)
+		os.Exit(1)
+	}
 
 	log := logger.New(cfg.Log)
 	logger.SetDefault(log)

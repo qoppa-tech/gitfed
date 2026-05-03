@@ -1,6 +1,8 @@
 package config
 
 import (
+	"fmt"
+
 	"github.com/qoppa-tech/toy-gitfed/internal/database"
 	"github.com/qoppa-tech/toy-gitfed/internal/modules/sso"
 	"github.com/qoppa-tech/toy-gitfed/internal/store"
@@ -35,8 +37,8 @@ type Config struct {
 	SecureCookies bool
 }
 
-func Load() Config {
-	return Config{
+func Load() (Config, error) {
+	cfg := Config{
 		Database: database.Config{
 			Host:     env.Or("DB_HOST", "localhost"),
 			Port:     env.Int("DB_PORT", 5432),
@@ -76,4 +78,13 @@ func Load() Config {
 		TOTPIssuer:    env.Or("TOTP_ISSUER", "gitfed"),
 		SecureCookies: env.Bool("SECURE_COOKIES", false),
 	}
+
+	if cfg.RateLimit.IPRate <= 0 || cfg.RateLimit.IPBurst <= 0 {
+		return Config{}, fmt.Errorf("invalid IP rate limit config: rate=%d burst=%d", cfg.RateLimit.IPRate, cfg.RateLimit.IPBurst)
+	}
+	if cfg.RateLimit.UserRate <= 0 || cfg.RateLimit.UserBurst <= 0 {
+		return Config{}, fmt.Errorf("invalid user rate limit config: rate=%d burst=%d", cfg.RateLimit.UserRate, cfg.RateLimit.UserBurst)
+	}
+
+	return cfg, nil
 }

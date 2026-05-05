@@ -35,6 +35,10 @@ type Config struct {
 	SecureCookies      bool
 	ShutdownTimeout    time.Duration
 	HealthcheckTimeout time.Duration
+	SeedAdminName      string
+	SeedAdminUsername  string
+	SeedAdminEmail     string
+	SeedAdminPassword  string
 }
 
 func Load() Config {
@@ -75,6 +79,10 @@ func Load() Config {
 		SecureCookies:      env.Bool("SECURE_COOKIES", false),
 		ShutdownTimeout:    parseDuration("SHUTDOWN_TIMEOUT", 15*time.Second),
 		HealthcheckTimeout: parseDuration("HEALTHCHECK_TIMEOUT", 2*time.Second),
+		SeedAdminName:      env.Or("SEED_ADMIN_NAME", ""),
+		SeedAdminUsername:  env.Or("SEED_ADMIN_USERNAME", ""),
+		SeedAdminEmail:     env.Or("SEED_ADMIN_EMAIL", ""),
+		SeedAdminPassword:  env.Or("SEED_ADMIN_PASSWORD", ""),
 	}
 }
 
@@ -138,6 +146,28 @@ func (c Config) Validate() error {
 	return &ValidationError{
 		MissingVars: missing,
 		InvalidVars: invalid,
+	}
+}
+
+func (c Config) ValidateSeed() error {
+	missing := make([]string, 0)
+	for _, key := range []string{
+		"SEED_ADMIN_NAME",
+		"SEED_ADMIN_USERNAME",
+		"SEED_ADMIN_EMAIL",
+		"SEED_ADMIN_PASSWORD",
+	} {
+		if strings.TrimSpace(os.Getenv(key)) == "" {
+			missing = append(missing, key)
+		}
+	}
+
+	if len(missing) == 0 {
+		return nil
+	}
+	return &ValidationError{
+		MissingVars: missing,
+		InvalidVars: map[string]string{},
 	}
 }
 

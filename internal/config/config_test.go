@@ -112,3 +112,36 @@ func TestValidateRejectsInvalidPorts(t *testing.T) {
 		t.Fatal("expected invalid vars")
 	}
 }
+
+func TestValidateSeedRequiresSeedEnvVars(t *testing.T) {
+	t.Setenv("SEED_ADMIN_NAME", "")
+	t.Setenv("SEED_ADMIN_USERNAME", "")
+	t.Setenv("SEED_ADMIN_EMAIL", "")
+	t.Setenv("SEED_ADMIN_PASSWORD", "")
+
+	cfg := Load()
+	err := cfg.ValidateSeed()
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+
+	verr, ok := err.(*ValidationError)
+	if !ok {
+		t.Fatalf("expected ValidationError, got %T", err)
+	}
+	if len(verr.MissingVars) != 4 {
+		t.Fatalf("expected 4 missing vars, got %d", len(verr.MissingVars))
+	}
+}
+
+func TestValidateSeedPassesWithAllVars(t *testing.T) {
+	t.Setenv("SEED_ADMIN_NAME", "Admin User")
+	t.Setenv("SEED_ADMIN_USERNAME", "admin")
+	t.Setenv("SEED_ADMIN_EMAIL", "admin@gitfed.local")
+	t.Setenv("SEED_ADMIN_PASSWORD", "secret")
+
+	cfg := Load()
+	if err := cfg.ValidateSeed(); err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+}

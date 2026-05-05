@@ -12,16 +12,16 @@ import (
 	"github.com/qoppa-tech/gitfed/internal/modules/user"
 )
 
-const (
-	defaultUserID = "11111111-1111-7111-8111-111111111111"
-	defaultOrgID  = "22222222-2222-7222-8222-222222222222"
-	defaultRepoID = "33333333-3333-7333-8333-333333333333"
-)
+type Input struct {
+	AdminName     string
+	AdminUsername string
+	AdminEmail    string
+	AdminPassword string
+}
 
-func Run(ctx context.Context, db *pgxpool.Pool) error {
-	repoID, err := uuid.Parse(defaultRepoID)
-	if err != nil {
-		return fmt.Errorf("parse repository id: %w", err)
+func Run(ctx context.Context, db *pgxpool.Pool, in Input) error {
+	if in.AdminName == "" || in.AdminUsername == "" || in.AdminEmail == "" || in.AdminPassword == "" {
+		return fmt.Errorf("seed input must include admin name, username, email and password")
 	}
 
 	q := sqlc.New(db)
@@ -31,16 +31,16 @@ func Run(ctx context.Context, db *pgxpool.Pool) error {
 	orgSvc := organization.NewService(orgStore)
 	repoStore := gitmod.NewStore(q)
 
-	adminUser, err := userStore.GetByUsername(ctx, "admin")
+	adminUser, err := userStore.GetByUsername(ctx, in.AdminUsername)
 	if err != nil {
 		if err != user.ErrNotFound {
 			return fmt.Errorf("get admin user: %w", err)
 		}
 		adminUser, err = userSvc.Register(ctx, user.RegisterInput{
-			Name:     "Admin User",
-			Username: "admin",
-			Password: "admin123",
-			Email:    "admin@gitfed.local",
+			Name:     in.AdminName,
+			Username: in.AdminUsername,
+			Password: in.AdminPassword,
+			Email:    in.AdminEmail,
 		})
 		if err != nil {
 			return fmt.Errorf("register admin user: %w", err)
@@ -52,7 +52,7 @@ func Run(ctx context.Context, db *pgxpool.Pool) error {
 		return err
 	}
 
-	if err := ensureRepository(ctx, repoStore, repoID, adminUser.ID); err != nil {
+	if err := ensureRepository(ctx, repoStore, adminUser.ID); err != nil {
 		return err
 	}
 
@@ -87,13 +87,18 @@ func ensureOrganization(ctx context.Context, orgSvc *organization.Service, userI
 	return org.ID, nil
 }
 
-func ensureRepository(ctx context.Context, repoStore *gitmod.Store, repoID, ownerID uuid.UUID) error {
+func ensureRepository(ctx context.Context, repoStore *gitmod.Store, ownerID uuid.UUID) error {
 	_, err := repoStore.GetByName(ctx, ownerID, "hello-gitfed")
 	if err == nil {
 		return nil
 	}
 	if err != gitmod.ErrRepoNotFound {
 		return fmt.Errorf("get repository: %w", err)
+	}
+
+	repoID, err := uuid.NewV7()
+	if err != nil {
+		return fmt.Errorf("generate repository id: %w", err)
 	}
 
 	_, err = repoStore.Create(ctx, gitmod.CreateInput{
